@@ -1,18 +1,37 @@
-export const fetchMovies = async (searchText, moviesCallback, errorCallback) => {
+export const fetchMovies = async (searchText, moviesCallback, errorCallback, finallyCallback) => {
     try {
-        const response = await fetch(`http://www.omdbapi.com/?s=${searchText}&apikey=f41d68df`)
+        const response = await fetch(`http://www.omdbapi.com/?s=${searchText}&apikey=f41d68df&type=movie`);
         const data = await response.json();
 
         if (data.Response === 'True') {
-            moviesCallback(data.Search);
+            const movieDetailsPromises = data.Search.map((movie) => fetchMovieDetails(movie.imdbID, errorCallback));
+            const movieDetails = await Promise.all(movieDetailsPromises);
+
+            moviesCallback(movieDetails);
             errorCallback(null);
         } else {
             moviesCallback([]);
             errorCallback(data.Error);
         }
-        
     } catch (err) {
         moviesCallback([]);
-        errorCallback('Error while fetching data.');
+        errorCallback('An error occurred while fetching data.');
+    } finally {
+        finallyCallback();
+    }
+};
+
+const fetchMovieDetails = async (id, errorCallback) => {
+    try {
+        const response = await fetch(`http://www.omdbapi.com/?i=${id}&plot=full&apikey=f41d68df`);
+        const data = await response.json();
+
+        if (data.Response === 'True') {
+            return data;
+        } else {
+            throw new Error(data.Error);
+        }
+    } catch (err) {
+        errorCallback('An error occurred while fetching movie details.');
     }
 };
